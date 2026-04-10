@@ -1,0 +1,29 @@
+{
+  "deployment": {
+    "id": "fd-prod-2025-04-10-v1",
+    "name": "findash-pro-v1",
+    "publicSlug": "findash-pro-v1",
+    "appName": "FinDash Pro V1",
+    "version": "1.0.0",
+    "environment": "production",
+    "buildTime": "2025-04-10T13:30:00Z",
+    "gitCommit": "fresh-deployment"
+  },
+  "status": "ready",
+  "endpoints": {
+    "production": "https://findash-pro-v1.vercel.app",
+    "preview": "https://findash-pro-v1-git-latest.vercel.app",
+    "health": "/api/health",
+    "ready": "/api/ready"
+  },
+  "features": {
+    "v7": "Premium Design System V2",
+    "v8": "User Profile with Personalization", 
+    "v9": "Smart Installments System"
+  },
+  "configuration": {
+    "framework": "Next.js 16",
+    "runtime": "Node.js 18+",
+    "packageManager": "Bun"
+  }
+}

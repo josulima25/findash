@@ -1,0 +1,35 @@
+# DESIGN SYSTEM V2 - LOCK FILE
+
+# STATUS: CONGELADO
+# VERSÃO: 2.0
+# DATA: 2025-01-XX
+
+# ⚠️ AVISO
+# Este arquivo indica que o Design System V2 está CONGELADO.
+# Nenhuma alteração visual é permitida sem autorização explícita.
+
+# COMPONENTES CONGELADOS
+- Sidebar layout e styling
+- Header layout e styling
+- Footer layout e styling
+- Stats Cards (KPIs)
+- Credit Cards display
+- Modals (edit card, new transaction)
+- Charts styling
+- Navigation styling
+- Typography system
+- Color palette
+- Spacing system
+- Border system
+- Shadow system
+- Animation system
+- Responsive behavior
+
+# REGRAS
+1. Qualquer nova feature DEVE seguir este Design System
+2. Cores, espaçamentos, tipografia, layout são IMUTÁVEIS
+3. Modificações requerem aprovação explícita
+4. Manter este arquivo como indicador de lock
+
+# CHECKSUM V2
+# [Timestamp gerado automaticamente ao congelar]
