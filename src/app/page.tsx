@@ -1,12 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase } from '@/lib/supabase'
 
 export default function Home() {
   const [email, setEmail] = useState('')
@@ -23,7 +18,7 @@ export default function Home() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: 'https://findash-premium.vercel.app/dashboard',
+          emailRedirectTo: 'https://findash-premium.vercel.app/auth/callback',
         },
       })
 
