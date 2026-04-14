@@ -1,147 +1,109 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { Header } from '@/components/layout/Header'
-import { StatsCards } from '@/components/dashboard/StatsCards'
-import { ChartsSection } from '@/components/dashboard/ChartsSection'
-import { CardsSection } from '@/components/cards/CardsSection'
-import { GoalsSection } from '@/components/goals/GoalsSection'
-import { AnalyticsSection } from '@/components/analytics/AnalyticsSection'
-import { NewTransactionModal } from '@/components/transactions/NewTransactionModal'
-import { ProfileModal } from '@/components/profile/ProfileModal'
-import { Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  getCards,
-  getTransactions,
-  saveTransactions,
-  getProfile,
-  getGreeting,
-} from '@/lib/storage'
-import { CreditCard } from '@/types'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function DashboardPage() {
-  const router = useRouter()
+export default function Home() {
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
 
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [cards, setCards] = useState<CreditCard[]>([])
-  const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false)
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-  const [userName, setUserName] = useState('')
-  const [greeting, setGreeting] = useState('Olá')
-  const [checkingAuth, setCheckingAuth] = useState(true)
+  const handleContinue = async () => {
+    if (!email) return
 
-  useEffect(() => {
-    const validateSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
-        router.replace('/')
-        return
-      }
-
-      setIsMounted(true)
-      setCards(getCards())
-
-      const profile = getProfile()
-      setUserName(profile.name)
-      setGreeting(getGreeting())
-
-      setCheckingAuth(false)
-    }
-
-    validateSession()
-  }, [router])
-
-  const handleNewTransaction = (transaction: any) => {
     try {
-      const transactions = getTransactions()
-      transactions.push(transaction)
-      saveTransactions(transactions)
-      setIsNewTransactionOpen(false)
-    } catch (error) {
-      console.error('Erro ao salvar transação:', error)
-    }
-  }
+      setLoading(true)
+      setMessage('')
 
-  if (checkingAuth) {
-    return <div className="p-10">Validando acesso...</div>
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: 'https://findash-premium.vercel.app/dashboard',
+        },
+      })
+
+      if (error) {
+        setMessage('Erro ao enviar magic link.')
+      } else {
+        setMessage('Magic link enviado com sucesso. Confira seu e-mail ✨')
+      }
+    } catch {
+      setMessage('Erro inesperado.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onNewTransaction={() => setIsNewTransactionOpen(true)}
-        onNewCard={() => setActiveTab('cards')}
-        onNewGoal={() => setActiveTab('goals')}
-        isOpen={sidebarOpen}
-      />
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0b0b0f',
+        color: 'white',
+      }}
+    >
+      <div
+        style={{
+          width: 420,
+          padding: 32,
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 16,
+          background: 'rgba(255,255,255,0.03)',
+        }}
+      >
+        <h1 style={{ fontSize: 28, marginBottom: 10 }}>
+          Bem-vindo ao FinDash 🚀
+        </h1>
 
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
-        <Header
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-          onNewTransaction={() => setIsNewTransactionOpen(true)}
-          onExportPDF={() => alert('PDF em breve')}
-          showActions={activeTab === 'dashboard'}
-          onProfileClick={() => setIsProfileModalOpen(true)}
+        <p style={{ opacity: 0.7, marginBottom: 20 }}>
+          Digite seu melhor e-mail para receber seu acesso por 7 dias grátis.
+        </p>
+
+        <input
+          type="email"
+          placeholder="seuemail@gmail.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{
+            width: '100%',
+            padding: 14,
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.1)',
+            background: '#111',
+            color: 'white',
+            marginBottom: 16,
+          }}
         />
 
-        <main className="p-4 md:p-6 pb-20">
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                {greeting}, {userName || 'Usuário'} 👋
-              </h1>
-              <p className="text-muted-foreground">
-                Visão geral das suas finanças
-              </p>
-            </div>
+        <button
+          onClick={handleContinue}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: 14,
+            borderRadius: 10,
+            border: 'none',
+            cursor: 'pointer',
+            fontWeight: 700,
+          }}
+        >
+          {loading ? 'Enviando...' : 'Continuar'}
+        </button>
 
-            <StatsCards
-              stats={{
-                totalEntradas: 8500,
-                totalSaidas: 4532,
-                saldo: 3968,
-                totalCartoes: cards.length,
-                faturaTotal: cards.reduce(
-                  (acc, card) => acc + card.faturaAtual,
-                  0
-                ),
-              }}
-            />
-
-            <ChartsSection />
-          </div>
-        </main>
+        {message && (
+          <p style={{ marginTop: 16, fontSize: 14, opacity: 0.8 }}>
+            {message}
+          </p>
+        )}
       </div>
-
-      {isMounted && (
-        <NewTransactionModal
-          open={isNewTransactionOpen}
-          onOpenChange={setIsNewTransactionOpen}
-          cards={cards}
-          onSave={handleNewTransaction}
-        />
-      )}
-
-      <ProfileModal
-        open={isProfileModalOpen}
-        onOpenChange={setIsProfileModalOpen}
-      />
     </div>
   )
 }
