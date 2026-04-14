@@ -9,28 +9,31 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleAuth = async () => {
-      const { data } = await supabase.auth.getUser()
+      const currentUrl = window.location.href
 
-      if (data.user) {
-        const email = data.user.email ?? ''
-        const userId = data.user.id
+      const { data, error } = await supabase.auth.exchangeCodeForSession(currentUrl)
 
-        await supabase
-          .from('user_access')
-          .upsert(
-            {
-              user_id: userId,
-              email,
-            },
-            {
-              onConflict: 'email',
-            }
-          )
-
-        router.push('/dashboard')
-      } else {
+      if (error || !data.user) {
         router.push('/')
+        return
       }
+
+      const email = data.user.email ?? ''
+      const userId = data.user.id
+
+      await supabase
+        .from('user_access')
+        .upsert(
+          {
+            user_id: userId,
+            email,
+          },
+          {
+            onConflict: 'email',
+          }
+        )
+
+      router.push('/dashboard')
     }
 
     handleAuth()
