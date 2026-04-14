@@ -13,8 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
-import { getProfile, getUserInitials } from '@/lib/storage'
+import { createClient } from '@supabase/supabase-js'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -24,15 +23,36 @@ interface HeaderProps {
   onProfileClick?: () => void
 }
 
-export function Header({ onMenuToggle, onNewTransaction, onExportPDF, showActions = false, onProfileClick }: HeaderProps) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+export function Header({
+  onMenuToggle,
+  onNewTransaction,
+  onExportPDF,
+  showActions = false,
+  onProfileClick,
+}: HeaderProps) {
   const { theme, setTheme } = useTheme()
-  const [userName, setUserName] = useState('')
-  const [userInitials, setUserInitials] = useState('JD')
+  const [userName, setUserName] = useState('Usuário')
+  const [userInitials, setUserInitials] = useState('U')
 
   useEffect(() => {
-    const profile = getProfile()
-    setUserName(profile.name)
-    setUserInitials(getUserInitials(profile.name))
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user?.email) {
+        const emailName = user.email.split('@')[0]
+        setUserName(emailName)
+        setUserInitials(emailName.charAt(0).toUpperCase())
+      }
+    }
+
+    loadUser()
   }, [])
 
   return (
@@ -83,7 +103,6 @@ export function Header({ onMenuToggle, onNewTransaction, onExportPDF, showAction
           >
             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Toggle theme</span>
           </Button>
 
           <Button variant="ghost" size="icon" className="relative">
@@ -103,7 +122,7 @@ export function Header({ onMenuToggle, onNewTransaction, onExportPDF, showAction
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{userName || 'Usuário'}</p>
+                  <p className="text-sm font-medium leading-none">{userName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
                     Meu Perfil
                   </p>
