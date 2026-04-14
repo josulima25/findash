@@ -11,29 +11,24 @@ const supabase = createClient(
 export default function Home() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const [checkingSession, setCheckingSession] = useState(true)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const checkExistingSession = async () => {
-      const { data } = await supabase.auth.getSession()
+    const forceLogout = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const shouldLogout = params.get('logout')
 
-      if (data.session) {
-        window.location.href = '/dashboard'
-        return
+      if (shouldLogout === 'true') {
+        await supabase.auth.signOut()
+        window.history.replaceState({}, '', '/')
       }
-
-      setCheckingSession(false)
     }
 
-    checkExistingSession()
+    forceLogout()
   }, [])
 
   const handleContinue = async () => {
-    if (!email.trim()) {
-      setMessage('Digite um e-mail válido.')
-      return
-    }
+    if (!email) return
 
     try {
       setLoading(true)
@@ -42,27 +37,20 @@ export default function Home() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: 'https://findash-premium.vercel.app',
+          emailRedirectTo: 'https://findash-premium.vercel.app/auth/callback',
         },
       })
 
       if (error) {
-        setMessage(`Erro: ${error.message}`)
-        return
+        setMessage('Erro ao enviar link.')
+      } else {
+        setMessage('Magic link enviado com sucesso. Confira seu e-mail ✨')
       }
-
-      // IMPORTANTE: não redireciona aqui
-      setMessage('Magic link enviado com sucesso. Confira seu e-mail ✨')
-    } catch (error) {
-      console.error(error)
+    } catch {
       setMessage('Erro inesperado.')
     } finally {
       setLoading(false)
     }
-  }
-
-  if (checkingSession) {
-    return <div style={{ padding: 40 }}>Validando acesso...</div>
   }
 
   return (
@@ -72,15 +60,10 @@ export default function Home() {
 
       <input
         type="email"
-        placeholder="seuemail@gmail.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        style={{
-          padding: '10px',
-          width: '300px',
-          marginTop: '20px',
-          marginRight: '10px',
-        }}
+        placeholder="seuemail@gmail.com"
+        style={{ padding: '10px', width: 300, marginRight: 10 }}
       />
 
       <button
