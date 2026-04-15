@@ -9,6 +9,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+const STRIPE_CHECKOUT_URL = 'https://SEU-LINK-DE-CHECKOUT-STRIPE'
+
 export default function DashboardPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Carregando dashboard...')
@@ -50,7 +52,7 @@ export default function DashboardPage() {
         const now = new Date()
 
         if (now > trialEndsAt) {
-          setStatus('Seu trial expirou. Faça upgrade para continuar.')
+          setStatus('expired')
           return
         }
 
@@ -58,7 +60,7 @@ export default function DashboardPage() {
         const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 
         setDaysLeft(diffDays)
-        setStatus('Acesso liberado')
+        setStatus('active')
       } catch {
         router.push('/')
       }
@@ -72,7 +74,11 @@ export default function DashboardPage() {
     router.push('/')
   }
 
-  if (status === 'Seu trial expirou. Faça upgrade para continuar.') {
+  const handleUpgrade = () => {
+    window.location.href = STRIPE_CHECKOUT_URL
+  }
+
+  if (status === 'expired') {
     return (
       <div
         style={{
@@ -96,11 +102,14 @@ export default function DashboardPage() {
           <h1 style={{ fontSize: 28, marginBottom: 12 }}>
             Trial expirado 🚫
           </h1>
+
           <p style={{ opacity: 0.8, marginBottom: 24 }}>
             Seu período grátis terminou. Faça upgrade para continuar usando o
             FinDash.
           </p>
+
           <button
+            onClick={handleUpgrade}
             style={{
               width: '100%',
               padding: 14,
