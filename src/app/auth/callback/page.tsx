@@ -17,38 +17,57 @@ export default function AuthCallbackPage() {
         )
 
         const code = searchParams.get('code')
-        const hashAccessToken = hashParams.get('access_token')
-        const hashRefreshToken = hashParams.get('refresh_token')
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        const authError = hashParams.get('error')
+        const errorCode = hashParams.get('error_code')
+        const errorDescription = hashParams.get('error_description')
 
-        if (code) {
-          const { data, error } =
-            await supabase.auth.exchangeCodeForSession(code)
+        // 1) trata links expirados ou já usados
+        if (authError || errorCode) {
+          const expired =
+            errorCode === 'otp_expired' ||
+            errorDescription?.toLowerCase().includes('expired')
 
-          if (error) {
-            setStatus(`Erro ao validar code: ${error.message}`)
-            return
-          }
+          setStatus(
+            expired
+              ? 'Link expirado ou já utilizado. Solicite um novo acesso.'
+              : `Erro no login: ${errorCode || authError}`
+          )
 
-          if (!data?.user) {
-            setStatus('Usuário não retornado no code flow.')
-            return
-          }
-        } else if (hashAccessToken && hashRefreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: hashAccessToken,
-            refresh_token: hashRefreshToken,
-          })
-
-          if (error) {
-            setStatus(`Erro ao validar hash: ${error.message}`)
-            return
-          }
-        } else {
-          setStatus('Token ausente no callback. Voltando...')
-          setTimeout(() => router.push('/'), 1200)
+          setTimeout(() => router.push('/'), 1800)
           return
         }
 
+        // 2) code flow
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (error) {
+            setStatus(`Erro ao validar login: ${error.message}`)
+            return
+          }
+        }
+        // 3) hash token flow
+        else if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (error) {
+            setStatus(`Erro ao validar sessão: ${error.message}`)
+            return
+          }
+        }
+        // 4) fallback real
+        else {
+          setStatus('Link inválido. Solicite um novo acesso.')
+          setTimeout(() => router.push('/'), 1800)
+          return
+        }
+
+        // 5) garante usuário autenticado
         const {
           data: { user },
           error: userError,
@@ -59,6 +78,7 @@ export default function AuthCallbackPage() {
           return
         }
 
+        // 6) salva/atualiza acesso
         const { error: upsertError } = await supabase
           .from('user_access')
           .upsert(
@@ -76,8 +96,9 @@ export default function AuthCallbackPage() {
           return
         }
 
+        // 7) sucesso final
         setStatus('Acesso validado. Redirecionando...')
-        router.push('/dashboard')
+        setTimeout(() => router.push('/dashboard'), 500)
       } catch (err: any) {
         setStatus(`Erro inesperado: ${err.message}`)
       }
