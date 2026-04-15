@@ -1,7 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function Home() {
   const [email, setEmail] = useState('')
@@ -18,17 +23,19 @@ export default function Home() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: 'https://findash-premium.vercel.app/auth/callback',
+          emailRedirectTo:
+            'https://findash-premium.vercel.app/auth/callback',
         },
       })
 
       if (error) {
-        setMessage('Erro ao enviar magic link.')
-      } else {
-        setMessage('Magic link enviado com sucesso. Confira seu e-mail ✨')
+        setMessage(`Erro real: ${error.message}`)
+        return
       }
-    } catch {
-      setMessage('Erro inesperado.')
+
+      setMessage('Magic link enviado com sucesso. Confira seu e-mail ✨')
+    } catch (err: any) {
+      setMessage(`Erro inesperado: ${err.message}`)
     } finally {
       setLoading(false)
     }
