@@ -20,11 +20,12 @@ export default function Home() {
       setLoading(true)
       setMessage('')
 
+      const redirectUrl = `${window.location.origin}/auth/callback`
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo:
-            'https://findash-premium.vercel.app/auth/callback',
+          emailRedirectTo: redirectUrl,
         },
       })
 
