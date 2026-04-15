@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const STRIPE_CHECKOUT_URL = https://buy.stripe.com/test_6oU4grgTvdqGfqr50L8Vi04
+const STRIPE_CHECKOUT_URL =
+  'https://buy.stripe.com/test_6oU4grgTvdqGfqr50L8Vi04'
 
 export default function DashboardPage() {
   const router = useRouter()
