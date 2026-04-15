@@ -23,7 +23,6 @@ export default function AuthCallbackPage() {
         const errorCode = hashParams.get('error_code')
         const errorDescription = hashParams.get('error_description')
 
-        // 1) trata links expirados ou já usados
         if (authError || errorCode) {
           const expired =
             errorCode === 'otp_expired' ||
@@ -39,7 +38,6 @@ export default function AuthCallbackPage() {
           return
         }
 
-        // 2) code flow
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -47,9 +45,7 @@ export default function AuthCallbackPage() {
             setStatus(`Erro ao validar login: ${error.message}`)
             return
           }
-        }
-        // 3) hash token flow
-        else if (accessToken && refreshToken) {
+        } else if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -59,15 +55,12 @@ export default function AuthCallbackPage() {
             setStatus(`Erro ao validar sessão: ${error.message}`)
             return
           }
-        }
-        // 4) fallback real
-        else {
+        } else {
           setStatus('Link inválido. Solicite um novo acesso.')
           setTimeout(() => router.push('/'), 1800)
           return
         }
 
-        // 5) garante usuário autenticado
         const {
           data: { user },
           error: userError,
@@ -78,25 +71,40 @@ export default function AuthCallbackPage() {
           return
         }
 
-        // 6) salva/atualiza acesso
+        const now = new Date()
+        const trialEnds = new Date(now)
+        trialEnds.setDate(now.getDate() + 7)
+
+        const { data: existingAccess } = await supabase
+          .from('user_access')
+          .select('id, trial_started_at')
+          .eq('email', user.email)
+          .maybeSingle()
+
+        const payload =
+          existingAccess?.trial_started_at
+            ? {
+                user_id: user.id,
+                email: user.email ?? '',
+              }
+            : {
+                user_id: user.id,
+                email: user.email ?? '',
+                trial_started_at: now.toISOString(),
+                trial_ends_at: trialEnds.toISOString(),
+              }
+
         const { error: upsertError } = await supabase
           .from('user_access')
-          .upsert(
-            {
-              user_id: user.id,
-              email: user.email ?? '',
-            },
-            {
-              onConflict: 'email',
-            }
-          )
+          .upsert(payload, {
+            onConflict: 'email',
+          })
 
         if (upsertError) {
           setStatus(`Erro ao salvar acesso: ${upsertError.message}`)
           return
         }
 
-        // 7) sucesso final
         setStatus('Acesso validado. Redirecionando...')
         setTimeout(() => router.push('/dashboard'), 500)
       } catch (err: any) {
