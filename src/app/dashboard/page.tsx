@@ -2,71 +2,64 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-const STRIPE_CHECKOUT_URL = 'https://SEU-LINK-DE-CHECKOUT-STRIPE'
+const STRIPE_CHECKOUT_URL = https://buy.stripe.com/test_6oU4grgTvdqGfqr50L8Vi04
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [status, setStatus] = useState('Carregando dashboard...')
+
+  const [loading, setLoading] = useState(true)
+  const [expired, setExpired] = useState(false)
+  const [premium, setPremium] = useState(false)
   const [email, setEmail] = useState('')
-  const [daysLeft, setDaysLeft] = useState<number | null>(null)
+  const [daysLeft, setDaysLeft] = useState(0)
 
   useEffect(() => {
-    const validateAccess = async () => {
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-        if (userError || !user) {
-          router.push('/')
-          return
-        }
-
-        setEmail(user.email ?? '')
-
-        const { data: access, error } = await supabase
-          .from('user_access')
-          .select('trial_ends_at, is_premium')
-          .eq('email', user.email)
-          .maybeSingle()
-
-        if (error || !access) {
-          router.push('/')
-          return
-        }
-
-        if (access.is_premium) {
-          setStatus('Premium ativo')
-          return
-        }
-
-        const trialEndsAt = new Date(access.trial_ends_at)
-        const now = new Date()
-
-        if (now > trialEndsAt) {
-          setStatus('expired')
-          return
-        }
-
-        const diffMs = trialEndsAt.getTime() - now.getTime()
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-
-        setDaysLeft(diffDays)
-        setStatus('active')
-      } catch {
+      if (!user) {
         router.push('/')
+        return
       }
+
+      setEmail(user.email ?? '')
+
+      const { data } = await supabase
+        .from('user_access')
+        .select('*')
+        .eq('email', user.email)
+        .single()
+
+      if (!data) {
+        router.push('/')
+        return
+      }
+
+      const isPremium = data.is_premium === true
+      const trialEndsAt = new Date(data.trial_ends_at)
+      const now = new Date()
+
+      const remainingMs = trialEndsAt.getTime() - now.getTime()
+      const remainingDays = Math.max(
+        0,
+        Math.ceil(remainingMs / (1000 * 60 * 60 * 24))
+      )
+
+      setPremium(isPremium)
+      setDaysLeft(remainingDays)
+
+      if (!isPremium && remainingMs <= 0) {
+        setExpired(true)
+      }
+
+      setLoading(false)
     }
 
-    validateAccess()
+    loadUser()
   }, [router])
 
   const handleLogout = async () => {
@@ -78,46 +71,28 @@ export default function DashboardPage() {
     window.location.href = STRIPE_CHECKOUT_URL
   }
 
-  if (status === 'expired') {
+  if (loading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#0b0b0f',
-          color: 'white',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 460,
-            padding: 32,
-            borderRadius: 16,
-            border: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(255,255,255,0.03)',
-          }}
-        >
-          <h1 style={{ fontSize: 28, marginBottom: 12 }}>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        Carregando dashboard...
+      </div>
+    )
+  }
+
+  if (expired) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
+        <div className="max-w-xl text-center">
+          <h1 className="text-4xl font-bold mb-4">
             Trial expirado 🚫
           </h1>
-
-          <p style={{ opacity: 0.8, marginBottom: 24 }}>
-            Seu período grátis terminou. Faça upgrade para continuar usando o
-            FinDash.
+          <p className="text-lg opacity-80 mb-8">
+            Seu período grátis terminou. Faça upgrade para continuar usando o FinDash.
           </p>
 
           <button
             onClick={handleUpgrade}
-            style={{
-              width: '100%',
-              padding: 14,
-              borderRadius: 10,
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 700,
-            }}
+            className="px-6 py-3 rounded-xl bg-white text-black font-bold hover:opacity-90 transition"
           >
             Fazer upgrade
           </button>
@@ -127,37 +102,26 @@ export default function DashboardPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#0b0b0f',
-        color: 'white',
-        padding: 40,
-      }}
-    >
-      <h1 style={{ fontSize: 32, marginBottom: 10 }}>
+    <div className="min-h-screen bg-black text-white p-10">
+      <h1 className="text-5xl font-bold mb-6">
         Dashboard FinDash 💸
       </h1>
 
-      <p style={{ opacity: 0.8, marginBottom: 10 }}>
-        Usuário: {email}
-      </p>
+      <p className="text-xl mb-3">Usuário: {email}</p>
 
-      {daysLeft !== null && (
-        <p style={{ opacity: 0.8, marginBottom: 24 }}>
+      {premium ? (
+        <p className="text-green-400 text-lg mb-8">
+          Premium ativo ✅
+        </p>
+      ) : (
+        <p className="text-lg mb-8">
           Trial restante: {daysLeft} dia(s)
         </p>
       )}
 
       <button
         onClick={handleLogout}
-        style={{
-          padding: 12,
-          borderRadius: 10,
-          border: 'none',
-          cursor: 'pointer',
-          fontWeight: 700,
-        }}
+        className="px-5 py-3 rounded-xl bg-white text-black font-bold"
       >
         Sair
       </button>
