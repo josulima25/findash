@@ -1,131 +1,173 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-
-const STRIPE_CHECKOUT_URL =
-  'https://buy.stripe.com/test_6oU4grgTvdqGfqr50L8Vi04'
+import { useState, useEffect } from 'react'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { Header } from '@/components/layout/Header'
+import { StatsCards } from '@/components/dashboard/StatsCards'
+import { ChartsSection } from '@/components/dashboard/ChartsSection'
+import { CardsSection } from '@/components/cards/CardsSection'
+import { GoalsSection } from '@/components/goals/GoalsSection'
+import { AnalyticsSection } from '@/components/analytics/AnalyticsSection'
+import { NewTransactionModal } from '@/components/transactions/NewTransactionModal'
+import { ProfileModal } from '@/components/profile/ProfileModal'
+import { Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { getCards, getTransactions, saveTransactions, getProfile, getGreeting } from '@/lib/storage'
+import { createClient } from '@/lib/supabase/client'
+import { CreditCard } from '@/types'
+import UpgradeButton from '@/components/UpgradeButton'
 
 export default function DashboardPage() {
-  const router = useRouter()
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [cards, setCards] = useState<CreditCard[]>([])
+  const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  const [userName, setUserName] = useState('')
+  const [greeting, setGreeting] = useState('Olá')
+  const [isPremium, setIsPremium] = useState(false)
 
-  const [loading, setLoading] = useState(true)
-  const [expired, setExpired] = useState(false)
-  const [premium, setPremium] = useState(false)
-  const [email, setEmail] = useState('')
-  const [daysLeft, setDaysLeft] = useState(0)
+  const supabase = createClient()
 
   useEffect(() => {
-    const loadUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+    const initializeDashboard = async () => {
+      setIsMounted(true)
+      setCards(getCards())
 
-      if (!user) {
-        router.push('/')
-        return
+      const profile = getProfile()
+      setUserName(profile.name)
+      setGreeting(getGreeting())
+
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user?.email) {
+        const { data: access } = await supabase
+          .from('user_access')
+          .select('is_premium')
+          .eq('email', user.email)
+          .single()
+
+        setIsPremium(access?.is_premium ?? false)
       }
-
-      setEmail(user.email ?? '')
-
-      const { data } = await supabase
-        .from('user_access')
-        .select('*')
-        .eq('email', user.email)
-        .single()
-
-      if (!data) {
-        router.push('/')
-        return
-      }
-
-      const isPremium = data.is_premium === true
-      const trialEndsAt = new Date(data.trial_ends_at)
-      const now = new Date()
-
-      const remainingMs = trialEndsAt.getTime() - now.getTime()
-      const remainingDays = Math.max(
-        0,
-        Math.ceil(remainingMs / (1000 * 60 * 60 * 24))
-      )
-
-      setPremium(isPremium)
-      setDaysLeft(remainingDays)
-
-      if (!isPremium && remainingMs <= 0) {
-        setExpired(true)
-      }
-
-      setLoading(false)
     }
 
-    loadUser()
-  }, [router])
+    initializeDashboard()
+  }, [])
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
+  const handleNewTransaction = (transaction: any) => {
+    try {
+      const transactions = getTransactions()
+      transactions.push(transaction)
+      saveTransactions(transactions)
+      setIsNewTransactionOpen(false)
+    } catch (error) {
+      console.error('Erro ao salvar transação:', error)
+    }
   }
 
-  const handleUpgrade = () => {
-    window.location.href = STRIPE_CHECKOUT_URL
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Carregando dashboard...
-      </div>
-    )
-  }
-
-  if (expired) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
-        <div className="max-w-xl text-center">
-          <h1 className="text-4xl font-bold mb-4">
-            Trial expirado 🚫
-          </h1>
-          <p className="text-lg opacity-80 mb-8">
-            Seu período grátis terminou. Faça upgrade para continuar usando o FinDash.
-          </p>
-
-          <button
-            onClick={handleUpgrade}
-            className="px-6 py-3 rounded-xl bg-white text-black font-bold hover:opacity-90 transition"
-          >
-            Fazer upgrade
-          </button>
-        </div>
-      </div>
-    )
+  const handleExportPDF = () => {
+    alert('Funcionalidade de exportação PDF será implementada em breve!')
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
-      <h1 className="text-5xl font-bold mb-6">
-        Dashboard FinDash 💸
-      </h1>
+    <div className="min-h-screen bg-background">
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onNewTransaction={() => setIsNewTransactionOpen(true)}
+        onNewCard={() => setActiveTab('cards')}
+        onNewGoal={() => setActiveTab('goals')}
+        isOpen={sidebarOpen}
+      />
 
-      <p className="text-xl mb-3">Usuário: {email}</p>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
+        <Header
+          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNewTransaction={() => setIsNewTransactionOpen(true)}
+          onExportPDF={handleExportPDF}
+          showActions={activeTab === 'dashboard'}
+          onProfileClick={() => setIsProfileModalOpen(true)}
+        />
 
-      {premium ? (
-        <p className="text-green-400 text-lg mb-8">
-          Premium ativo ✅
-        </p>
-      ) : (
-        <p className="text-lg mb-8">
-          Trial restante: {daysLeft} dia(s)
-        </p>
+        <main className="p-4 md:p-6 pb-20">
+
+          {!isPremium && (
+            <div className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 flex items-center justify-between">
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                Você está no plano trial. Faça upgrade para acesso completo.
+              </p>
+              <UpgradeButton />
+            </div>
+          )}
+
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {greeting}, {userName || 'Usuário'} 👋
+                </h1>
+                <p className="text-muted-foreground">Visão geral das suas finanças</p>
+              </div>
+
+              <StatsCards
+                stats={{
+                  totalEntradas: 8500,
+                  totalSaidas: 4532,
+                  saldo: 3968,
+                  totalCartoes: cards.length,
+                  faturaTotal: cards.reduce((acc, card) => acc + card.faturaAtual, 0),
+                }}
+              />
+
+              <ChartsSection />
+            </div>
+          )}
+
+          {activeTab === 'cards' && <CardsSection />}
+          {activeTab === 'analytics' && <AnalyticsSection />}
+          {activeTab === 'goals' && <GoalsSection />}
+
+          {activeTab === 'transactions' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Transações</h2>
+                  <p className="text-muted-foreground">Histórico completo de suas movimentações</p>
+                </div>
+                <Button onClick={() => setIsNewTransactionOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Novo Lançamento
+                </Button>
+              </div>
+              <div className="rounded-lg border bg-card p-8 text-center">
+                <p className="text-muted-foreground">Histórico de transações será exibido aqui</p>
+              </div>
+            </div>
+          )}
+        </main>
+
+        <footer className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur">
+          <div className="flex h-12 items-center justify-between px-4 md:px-6">
+            <p className="text-xs text-muted-foreground">© 2025 FinDash Pro. Todos os direitos reservados.</p>
+            <p className="text-xs text-muted-foreground">Feito com ❤️ para gestão financeira</p>
+          </div>
+        </footer>
+      </div>
+
+      {isMounted && (
+        <NewTransactionModal
+          open={isNewTransactionOpen}
+          onOpenChange={() => setIsNewTransactionOpen(false)}
+          cards={cards}
+          onSave={handleNewTransaction}
+        />
       )}
 
-      <button
-        onClick={handleLogout}
-        className="px-5 py-3 rounded-xl bg-white text-black font-bold"
-      >
-        Sair
-      </button>
+      <ProfileModal
+        open={isProfileModalOpen}
+        onOpenChange={setIsProfileModalOpen}
+      />
     </div>
   )
 }
