@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState('')
   const [greeting, setGreeting] = useState('Olá')
   const [isPremium, setIsPremium] = useState(false)
+  const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null)
+  const [trialExpired, setTrialExpired] = useState(false)
 
   const supabase = createClient()
 
@@ -44,11 +46,35 @@ export default function DashboardPage() {
       if (user?.email) {
         const { data: access } = await supabase
           .from('user_access')
-          .select('is_premium')
+          .select('*')
           .eq('email', user.email)
           .single()
 
-        setIsPremium(access?.is_premium ?? false)
+        if (!access) {
+          const trialStart = new Date()
+          const trialEnd = new Date()
+          trialEnd.setDate(trialEnd.getDate() + 7)
+
+          await supabase.from('user_access').insert({
+            email: user.email,
+            trial_started_at: trialStart.toISOString(),
+            trial_ends_at: trialEnd.toISOString(),
+            is_premium: false,
+            status: 'active_trial',
+          })
+
+          setIsPremium(false)
+          setTrialEndsAt(trialEnd)
+          setTrialExpired(false)
+        } else {
+          setIsPremium(access.is_premium ?? false)
+
+          if (access.trial_ends_at) {
+            const trialEnd = new Date(access.trial_ends_at)
+            setTrialEndsAt(trialEnd)
+            setTrialExpired(!access.is_premium && new Date() > trialEnd)
+          }
+        }
       }
     }
 
@@ -68,6 +94,21 @@ export default function DashboardPage() {
 
   const handleExportPDF = () => {
     alert('Funcionalidade de exportação PDF será implementada em breve!')
+  }
+
+  if (trialExpired) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="max-w-md w-full mx-4 rounded-2xl border bg-card p-8 text-center space-y-4">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-2xl font-bold">Trial expirado</h1>
+          <p className="text-muted-foreground">
+            Seu período gratuito de 7 dias terminou. Faça upgrade para continuar acessando o FinDash.
+          </p>
+          <UpgradeButton />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -92,11 +133,16 @@ export default function DashboardPage() {
 
         <main className="p-4 md:p-6 pb-20">
 
-          {!isPremium && (
+          {!isPremium && trialEndsAt && (
             <div className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 flex items-center justify-between">
-              <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                Você está no plano trial. Faça upgrade para acesso completo.
-              </p>
+              <div>
+                <p className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">
+                  Você está no plano trial.
+                </p>
+                <p className="text-xs text-yellow-600/70 dark:text-yellow-400/70 mt-1">
+                  Expira em {trialEndsAt.toLocaleDateString('pt-BR')}
+                </p>
+              </div>
               <UpgradeButton />
             </div>
           )}
@@ -170,4 +216,4 @@ export default function DashboardPage() {
       />
     </div>
   )
-}
+} 
